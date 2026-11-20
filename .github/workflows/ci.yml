@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Ensure Postgres binaries on PATH
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql neovim
+          PG_BIN="$(dirname "$(find /usr/lib/postgresql -name initdb | sort -V | tail -n 1)")"
+          echo "$PG_BIN" >> "$GITHUB_PATH"
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --frozen
+
+      - name: Lint Python
+        working-directory: backend
+        run: uv run ruff check src tests
+
+      - name: Run pytest (unit + real Postgres + Supabase API transport)
+        working-directory: backend
+        run: uv run pytest -v
+
+      - name: Validate Neovim Lua syntax
+        run: |
+          nvim --headless -u NONE \
+            -c 'lua for _, f in ipairs({"nvim/plugin/dex.lua", "nvim/lua/dex/init.lua", "nvim/lua/dex/look.lua", "nvim/lua/dex/client.lua"}) do assert(loadfile(f)) end' \
+            -c 'qall!'

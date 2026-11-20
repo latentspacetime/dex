@@ -1,0 +1,90 @@
+# dex config: ~/.config/dex/config.toml (or $DEX_CONFIG).
+# Only [environments.<name>] is required. Everything else is optional and
+# makes search, cards, and Ask smarter about your schema. dex reads the
+# public schema only and never writes.
+
+# The environment `dex` and <Leader>d open by default. ^t in Neovim cycles
+# through every environment below, in file order.
+default_environment = "local"
+
+# ── environments ──────────────────────────────────────────────────────────
+# Every read runs in a read-only transaction, and dex refuses an environment
+# whose server does not report transaction_read_only = on.
+
+# A direct connection. url_command prints a postgres:// URL; its output stays
+# in memory. A pooled URL (Neon's -pooler host, PgBouncer) works.
+[environments.local]
+driver = "postgres"
+url_command = "printf %s postgresql://localhost/app_development"
+database = "app_development"   # shown in the header; default: the environment name
+protected = false              # amber chip instead of red
+
+# Supabase through the Management API query endpoint: no database password.
+# Each request sets read_only, so it runs as supabase_read_only_user.
+# [environments.clinic]
+# driver = "supabase_api"
+# project_ref = "abcdefghijklmnop"         # from the dashboard URL
+# token_command = "infisical secrets get SUPABASE_ACCESS_TOKEN --plain --silent"
+# llm = false                # default true; false turns off ASK, the router and summaries
+# persist_index = false      # default true; false keeps the search index in memory only
+# login_command = "..."      # run once when a secret command fails with an expired login
+# auth_markers = ["infisical login", "session has expired"]   # what "expired" looks like
+
+# ── scope ─────────────────────────────────────────────────────────────────
+# A tenant column (account, org, brand, workspace) shown beside every hit and
+# card, used to narrow polymorphic lookups, listed for Ask, and charted on home.
+# [scope]
+# table = "accounts"
+# column = "account_id"
+# label = "name"
+
+# ── search ────────────────────────────────────────────────────────────────
+# [search]
+# label_columns = ["display_name"]           # tried before the defaults (name, title, email, …)
+# label_overrides = { users = "concat_ws(' ', first_name, last_name)" }
+# skip_tables = ["audit_log", "schema_migrations"]
+# external_id_columns = ["stripe_customer_id", "order_number"]   # matched exactly
+# priority_tables = ["orders", "customers"]  # listed first when an id matches many tables
+# Deep (full-text) search indexes long text columns named like comment,
+# description, body, message, note, … by default. Set this to choose exactly:
+# deep_sources = [["comments", "body", 1500], ["products", "description", 2000]]
+
+# ── schema ────────────────────────────────────────────────────────────────
+# [schema]
+# infer_references = true                    # customer_id -> customers when no FK is declared
+# references = { "orders.buyer_id" = "users" }   # foreign keys to a parent's id are read from pg_constraint
+# denied_tables = ["payment_methods"]        # never searched or queried
+# [[schema.polymorphic]]
+# table = "comments"
+# type_column = "commentable_type"
+# id_column = "commentable_id"
+# targets = { Order = "orders", Product = "products" }
+# Lineage: parent chains shown as "made from" on a card, one joined query each.
+# [schema.lineage]
+# invoice_lines = [[["order_line_id", "order_lines"], ["product_id", "products"]]]
+
+# ── links ─────────────────────────────────────────────────────────────────
+# Paste an app URL into search and jump to the rows it names.
+# [[links.paths]]
+# pattern = "orders/([\\w-]+)"           # one capture group: the id
+# table = "orders"
+# [links.query]
+# customer = "customers"
+
+# ── ask (needs OPENROUTER_API_KEY, from the environment or ~/.config/dex/.env;
+#    never used by an environment with llm = false) ──
+# [ask]
+# router = true                              # route typed input to the right tab with a small model
+# context = """
+# - An "active customer" is customers.status = 'active' AND deleted_at IS NULL.
+# - Money columns are integer cents.
+# - Dates in columns typed text are ISO strings (YYYY-MM-DD).
+# """
+# domain_tables = ["roles", "order_statuses"]  # lookup tables whose names Ask should see verbatim
+# default_model = "gemini-3.8-flash"
+# [ask.models]
+# "gemini-3.8-flash" = { model = "google/gemini-3.8-flash", reasoning = { effort = "minimal" } }
+
+# ── home ──────────────────────────────────────────────────────────────────
+# [home]
+# tables = ["orders", "signups"]             # activity tables; default: the largest with created_at
