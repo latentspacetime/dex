@@ -15,10 +15,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Ensure Postgres binaries on PATH
+      - name: Install Postgres, Neovim, fzf, and ripgrep
         run: |
           sudo apt-get update
-          sudo apt-get install -y postgresql neovim
+          sudo apt-get install -y postgresql neovim fzf ripgrep
           PG_BIN="$(dirname "$(find /usr/lib/postgresql -name initdb | sort -V | tail -n 1)")"
           echo "$PG_BIN" >> "$GITHUB_PATH"
 
